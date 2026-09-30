@@ -8,7 +8,7 @@
 ;;                     validating user input, and formatting all output.
 ;;                     run_funcs.scm: select, flatten, crossproduct and
 ;;                     the labeled "Show results" output (option 1).
-;;   <member 2>      - lookups.scm: find-by-zip, find-by-place and
+;;       Evan Bailey - lookups.scm: find-by-zip, find-by-place and
 ;;                     count-zips-in-state (options 2, 3 and 6).
 ;;   <member 3>      - places.scm: states-for-place and common-places
 ;;                     (options 4 and 5).
