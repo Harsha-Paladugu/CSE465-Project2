@@ -6,6 +6,7 @@
 ;; The dataset is passed as the second argument to each function.
 ;; Use recursion for searches and counting.
 ;; Export the three public functions with provide.
+;; Completed by Evan Bailey
 ;; ============================================================
 (provide find-by-zip find-by-place count-zips-in-state)
 
