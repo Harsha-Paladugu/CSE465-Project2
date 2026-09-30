@@ -1,291 +1,186 @@
 #lang scheme
 ;; ============================================================
 ;; CSE 465 - Project 2 : Zipcode Explorer
-;; A menu-driven Scheme program that works on the zipcodes.scm dataset.
-;; Files:
-;;   zipcodes.scm  - the dataset: a list of records shaped like
-;;                   (zipcode place state county latitude longitude)
-;;   lookups.scm   - options 2, 3 and 6
-;;   places.scm    - options 4 and 5
-;;   run_funcs.scm - option 1
 ;;
-;; Everything here uses plain recursion; there are no looping constructs.
-;; The menu itself is recursive: main-loop calls itself after each option.
+;; Group members and what each person did:
+;;   Harsha Paladugu - main.scm (the menu, user input and output),
+;;                     run_funcs.scm (select, flatten, crossproduct)
+;;                     and places.scm (options 4 and 5)
+;;   Evan Bailey     - lookups.scm (find-by-zip, find-by-place and
+;;                     count-zips-in-state for options 2, 3 and 6)
+;;
+;; A menu program that works on the zipcodes.scm dataset.
+;; Each record in the dataset looks like:
+;;   (zipcode place state county latitude longitude)
+;; Everything is written with recursion, there are no loops.
 ;; ============================================================
 
-(require "zipcodes.scm"    ; zipcodes
-         "lookups.scm"     ; find-by-zip  find-by-place  count-zips-in-state
-         "places.scm"      ; states-for-place  common-places
+(require "zipcodes.scm"    ; the zipcodes list
+         "lookups.scm"     ; find-by-zip, find-by-place, count-zips-in-state
+         "places.scm"      ; states-for-place, common-places
          "run_funcs.scm")  ; run-results
 
 
-;; ------------------------------------------------------------
-;; Output helpers
-;; ------------------------------------------------------------
+;; ---------- small helpers ----------
 
-;; say : any ... -> void
-;; Display every argument in order, then end the line.
-;; Example: (say "Found " 3 " states.")  prints  Found 3 states.
-(define (say . parts)
-  (display-all parts)
+;; print something and go to the next line
+(define (print-line x)
+  (display x)
   (newline))
 
-;; display-all : list -> void
-;; Display each item of the list, one after another.
-(define (display-all parts)
-  (cond ((null? parts) (void))
-        (else (display (car parts))
-              (display-all (cdr parts)))))
-
-;; show-items : list -> void
-;; Print each item on its own indented line.
-(define (show-items items)
-  (cond ((null? items) (void))
-        (else (say "   - " (car items))
-              (show-items (cdr items)))))
-
-;; pad-left : string number -> string
-;; Add "0" to the front of str until it is width characters long.
-(define (pad-left str width)
-  (cond ((>= (string-length str) width) str)
-        (else (pad-left (string-append "0" str) width))))
-
-;; zip->string : number -> string
-;; The dataset stores zipcodes as numbers, so 6404 really means "06404".
-;; Turn the number back into a 5-character string with leading zeros.
-(define (zip->string zip)
-  (pad-left (number->string zip) 5))
-
-;; show-record : record -> void
-;; Print all six fields of one dataset record with a label for each.
-(define (show-record record)
-  (say "   Zipcode   : " (zip->string (list-ref record 0)))
-  (say "   Place     : " (list-ref record 1))
-  (say "   State     : " (list-ref record 2))
-  (say "   County    : " (list-ref record 3))
-  (say "   Latitude  : " (list-ref record 4))
-  (say "   Longitude : " (list-ref record 5)))
-
-
-;; ------------------------------------------------------------
-;; Input helpers
-;; ------------------------------------------------------------
-
-;; prompt : string -> void
-;; Show a prompt and make sure it appears before the program waits for input.
-(define (prompt text)
-  (display text)
-  (flush-output))
-
-;; read-input : -> string
-;; Read one line typed by the user, without the spaces around it.
-;; If the input has ended (end-of-file), return "0" so the menu exits cleanly.
-(define (read-input)
-  (let ((line (read-line (current-input-port) 'any)))
+;; show a question and read the user's answer (without spaces around it).
+;; if there is no more input, return "0" so the menu just exits.
+(define (ask question)
+  (display question)
+  (flush-output)   ; make sure the question shows up before we wait
+  (let ((line (read-line)))
     (if (eof-object? line)
         "0"
         (string-trim line))))
 
-;; all-digits? : string -> boolean
-;; True when every character in str is a digit 0-9.
+;; print every item in the list on its own line
+(define (print-list lst)
+  (cond ((null? lst) (void))
+        (else (display "  - ")
+              (print-line (car lst))
+              (print-list (cdr lst)))))
+
+;; zipcodes are stored as numbers, so 6404 is really 06404.
+;; add zeros to the front until it is 5 characters long.
+(define (add-zeros str)
+  (if (< (string-length str) 5)
+      (add-zeros (string-append "0" str))
+      str))
+
+;; print one record with a label in front of each field
+(define (print-record r)
+  (display "  Zipcode:   ") (print-line (add-zeros (number->string (list-ref r 0))))
+  (display "  Place:     ") (print-line (list-ref r 1))
+  (display "  State:     ") (print-line (list-ref r 2))
+  (display "  County:    ") (print-line (list-ref r 3))
+  (display "  Latitude:  ") (print-line (list-ref r 4))
+  (display "  Longitude: ") (print-line (list-ref r 5)))
+
+;; true if every character in str is a digit
 (define (all-digits? str)
   (cond ((string=? str "") #t)
-        ((char-numeric? (string-ref str 0))
-         (all-digits? (substring str 1)))
+        ((char-numeric? (string-ref str 0)) (all-digits? (substring str 1)))
         (else #f)))
 
-;; valid-zip? : string -> boolean
-;; A valid zipcode is exactly 5 digits, for example "45056" or "06404".
+;; a zipcode has to be exactly 5 digits
 (define (valid-zip? str)
-  (and (= (string-length str) 5)
-       (all-digits? str)))
+  (and (= (string-length str) 5) (all-digits? str)))
 
-;; upcase-all : list of strings -> list of strings
-;; Upper-case every string so "oh" and "OH" are treated the same.
-(define (upcase-all items)
-  (cond ((null? items) '())
-        (else (cons (string-upcase (car items))
-                    (upcase-all (cdr items))))))
+;; upper-case every string in the list, so "oh" works the same as "OH"
+(define (upcase-all lst)
+  (cond ((null? lst) '())
+        (else (cons (string-upcase (car lst)) (upcase-all (cdr lst))))))
 
-;; read-states : -> list of strings
-;; Read a line like "oh, in ky" and turn it into ("OH" "IN" "KY"):
-;; commas become spaces, the line is split on spaces, every abbreviation
-;; is upper-cased, and repeated states are dropped.
-(define (read-states)
-  (remove-duplicates
-   (upcase-all
-    (string-split (string-replace (read-input) "," " ")))))
-
-;; state-exists? : string -> boolean
-;; A state exists when at least one zipcode record belongs to it.
-(define (state-exists? state)
-  (> (count-zips-in-state state zipcodes) 0))
-
-;; first-unknown-state : list of strings -> string or #f
-;; Return the first state in the list that is not in the dataset,
-;; or #f when every state is known.
-(define (first-unknown-state states)
-  (cond ((null? states) #f)
-        ((state-exists? (car states)) (first-unknown-state (cdr states)))
-        (else (car states))))
+;; true if every state in the list has at least one zipcode record
+(define (all-known? states)
+  (cond ((null? states) #t)
+        ((= (count-zips-in-state (car states) zipcodes) 0) #f)
+        (else (all-known? (cdr states)))))
 
 
-;; ------------------------------------------------------------
-;; Menu option 1 - Show results
-;; ------------------------------------------------------------
+;; ---------- option 2: find by zipcode ----------
 
-;; Run every expression in run_funcs.scm and show the labeled results.
-(define (option-show-results)
-  (say "Running all expressions in run_funcs.scm ...")
-  (newline)
-  (run-results))
-
-
-;; ------------------------------------------------------------
-;; Menu option 2 - Find by zipcode
-;; ------------------------------------------------------------
-
-;; Ask for a zipcode, check it, and look up the first matching record.
-(define (option-find-by-zip)
-  (prompt "Enter a 5-digit zipcode: ")
-  (let ((text (read-input)))
+(define (find-zip)
+  (let ((text (ask "Enter a 5-digit zipcode: ")))
     (cond ((not (valid-zip? text))
-           (say "\"" text "\" is not a valid zipcode. Please enter exactly 5 digits."))
-          (else
-           (show-zip-result text (find-by-zip (string->number text) zipcodes))))))
+           (print-line "That is not a valid zipcode. Please enter exactly 5 digits."))
+          (else (print-zip-record text (find-by-zip (string->number text) zipcodes))))))
 
-;; show-zip-result : string (record or #f) -> void
-(define (show-zip-result text record)
-  (cond ((not record) (say "No record was found for zipcode " text "."))
-        (else (say "Record for zipcode " text ":")
-              (show-record record))))
-
-
-;; ------------------------------------------------------------
-;; Menu option 3 - Find by place
-;; ------------------------------------------------------------
-
-;; Ask for a place name and look up the first matching record.
-(define (option-find-by-place)
-  (prompt "Enter a place name: ")
-  (let ((place (read-input)))
-    (cond ((string=? place "") (say "No place name was entered."))
-          (else (show-place-result place (find-by-place place zipcodes))))))
-
-;; show-place-result : string (record or #f) -> void
-(define (show-place-result place record)
-  (cond ((not record) (say "No record was found for the place \"" place "\"."))
-        (else (say "First record for the place \"" place "\":")
-              (show-record record))))
+;; print the record we found for a zipcode, or say it was not found
+(define (print-zip-record text record)
+  (cond ((not record) (print-line (string-append "No record was found for zipcode " text ".")))
+        (else (print-line (string-append "Record for zipcode " text ":"))
+              (print-record record))))
 
 
-;; ------------------------------------------------------------
-;; Menu option 4 - Find states that have the given place
-;; ------------------------------------------------------------
+;; ---------- option 3: find by place ----------
 
-;; Ask for a place name and list every state that has it.
-(define (option-states-for-place)
-  (prompt "Enter a place name: ")
-  (let ((place (read-input)))
-    (cond ((string=? place "") (say "No place name was entered."))
-          (else (show-states place (states-for-place place zipcodes))))))
-
-;; show-states : string (list of strings) -> void
-(define (show-states place states)
-  (cond ((null? states) (say "No state has a place named \"" place "\"."))
-        (else (say (length states) " state(s) have a place named \"" place "\":")
-              (show-items states))))
+(define (find-place)
+  (let* ((place (ask "Enter a place name: "))
+         (record (find-by-place place zipcodes)))
+    (cond ((string=? place "") (print-line "You did not enter a place name."))
+          ((not record) (print-line (string-append "No record was found for " place ".")))
+          (else (print-line (string-append "First record for " place ":"))
+                (print-record record)))))
 
 
-;; ------------------------------------------------------------
-;; Menu option 5 - Find common places between states
-;; ------------------------------------------------------------
+;; ---------- option 4: states that have the given place ----------
 
-;; Ask for two or more states and list the places they all share.
-(define (option-common-places)
-  (prompt "Enter two or more state abbreviations separated by spaces (e.g. OH IN KY): ")
-  (check-states (read-states)))
-
-;; check-states : list of strings -> void
-;; Make sure the states are usable before searching for common places.
-(define (check-states states)
-  (let ((unknown (first-unknown-state states)))
-    (cond ((< (length states) 2)
-           (say "Please enter at least two different state abbreviations."))
-          ((string? unknown)
-           (say "The state \"" unknown "\" does not exist in the dataset."))
-          (else
-           (show-common-places states (common-places states zipcodes))))))
-
-;; show-common-places : (list of strings) (list of strings) -> void
-(define (show-common-places states places)
-  (cond ((null? places)
-         (say "There are no common places between " (string-join states ", ") "."))
-        (else
-         (say (length places) " place(s) are common to " (string-join states ", ") ":")
-         (show-items places))))
+(define (states-with-place)
+  (let* ((place (ask "Enter a place name: "))
+         (states (states-for-place place zipcodes)))
+    (cond ((string=? place "") (print-line "You did not enter a place name."))
+          ((null? states) (print-line (string-append "No state has a place named " place ".")))
+          (else (print-line (string-append (number->string (length states))
+                                           " state(s) have a place named " place ":"))
+                (print-list states)))))
 
 
-;; ------------------------------------------------------------
-;; Menu option 6 - Count zipcodes for a given state
-;; ------------------------------------------------------------
+;; ---------- option 5: common places between states ----------
 
-;; Ask for a state abbreviation and report how many zipcode entries it has.
-(define (option-count-zips)
-  (prompt "Enter a state abbreviation (e.g. OH): ")
-  (show-zip-count (string-upcase (read-input))))
-
-;; show-zip-count : string -> void
-(define (show-zip-count state)
-  (let ((count (count-zips-in-state state zipcodes)))
-    (cond ((string=? state "") (say "No state abbreviation was entered."))
-          ((= count 0) (say "The state \"" state "\" does not exist in the dataset."))
-          (else (say "The state " state " has " count " zipcode entries.")))))
+;; the states are typed on one line separated by spaces (commas are ok too)
+(define (common)
+  (let* ((line (ask "Enter two or more state abbreviations separated by spaces (like OH IN KY): "))
+         (states (remove-duplicates (upcase-all (string-split (string-replace line "," " ")))))
+         (places (common-places states zipcodes)))
+    (cond ((< (length states) 2) (print-line "Please enter at least two different states."))
+          ((not (all-known? states)) (print-line "One of those states is not in the dataset."))
+          ((null? places) (print-line "There are no common places between those states."))
+          (else (print-line (string-append (number->string (length places))
+                                           " place(s) are common to " (string-join states ", ") ":"))
+                (print-list places)))))
 
 
-;; ------------------------------------------------------------
-;; The menu
-;; ------------------------------------------------------------
+;; ---------- option 6: count zipcodes for a state ----------
 
-;; show-menu : -> void
-;; Print the menu and ask for a choice.
-(define (show-menu)
+(define (count-zips)
+  (let* ((state (string-upcase (ask "Enter a state abbreviation (like OH): ")))
+         (count (count-zips-in-state state zipcodes)))
+    (cond ((string=? state "") (print-line "You did not enter a state."))
+          ((= count 0) (print-line (string-append "There is no state " state " in the dataset.")))
+          (else (print-line (string-append state " has " (number->string count) " zipcode entries."))))))
+
+
+;; ---------- the menu ----------
+
+(define (print-menu)
   (newline)
-  (say "=============== Zipcode Explorer ===============")
-  (say "  1. Show results (run everything in run_funcs.scm)")
-  (say "  2. Find by zipcode")
-  (say "  3. Find by place")
-  (say "  4. Find states that have the given place")
-  (say "  5. Find common places between states")
-  (say "  6. Count zipcodes for a given state")
-  (say "  0. Exit")
-  (say "================================================")
-  (prompt "Enter your choice (0-6): "))
+  (print-line "========== Zipcode Explorer ==========")
+  (print-line " 1. Show results (run run_funcs.scm)")
+  (print-line " 2. Find by zipcode")
+  (print-line " 3. Find by place")
+  (print-line " 4. Find states that have the given place")
+  (print-line " 5. Find common places between states")
+  (print-line " 6. Count zipcodes for a given state")
+  (print-line " 0. Exit")
+  (print-line "======================================"))
 
-;; run-option : string -> void
-;; Run the menu option the user picked.
-(define (run-option choice)
+;; run whichever option the user picked
+(define (do-option choice)
   (newline)
-  (cond ((string=? choice "1") (option-show-results))
-        ((string=? choice "2") (option-find-by-zip))
-        ((string=? choice "3") (option-find-by-place))
-        ((string=? choice "4") (option-states-for-place))
-        ((string=? choice "5") (option-common-places))
-        ((string=? choice "6") (option-count-zips))
-        (else (say "\"" choice "\" is not a menu option. Please enter a number from 0 to 6."))))
+  (cond ((string=? choice "1") (run-results))
+        ((string=? choice "2") (find-zip))
+        ((string=? choice "3") (find-place))
+        ((string=? choice "4") (states-with-place))
+        ((string=? choice "5") (common))
+        ((string=? choice "6") (count-zips))
+        (else (print-line "That is not a menu option. Please enter a number from 0 to 6."))))
 
-;; main-loop : -> void
-;; Show the menu, run the chosen option, then show the menu again.
-;; This is the program's loop, written as recursion: main-loop calls
-;; itself after every option until the user enters 0.
-(define (main-loop)
-  (show-menu)
-  (let ((choice (read-input)))
-    (cond ((string=? choice "0") (say "Goodbye!"))
-          (else (run-option choice)
-                (main-loop)))))
+;; show the menu, do what the user picked, then show the menu again.
+;; this is our "loop": menu keeps calling itself until the user enters 0.
+(define (menu)
+  (print-menu)
+  (let ((choice (ask "Enter your choice (0-6): ")))
+    (cond ((string=? choice "0") (print-line "Goodbye!"))
+          (else (do-option choice)
+                (menu)))))
 
-;; Start the program.
-(say "Welcome to the Zipcode Explorer!")
-(say "Loaded " (length zipcodes) " zipcode records.")
-(main-loop)
+;; start the program
+(print-line "Welcome to the Zipcode Explorer!")
+(display "Loaded ") (display (length zipcodes)) (print-line " zipcode records.")
+(menu)
