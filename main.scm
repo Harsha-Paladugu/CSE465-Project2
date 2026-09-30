@@ -2,18 +2,6 @@
 ;; ============================================================
 ;; CSE 465 - Project 2 : Zipcode Explorer
 ;; A menu-driven Scheme program that works on the zipcodes.scm dataset.
-;;
-;; Group members and responsibilities (fill in every member):
-;;   Harsha Paladugu - main.scm: the interactive menu, reading and
-;;                     validating user input, and formatting all output.
-;;                     run_funcs.scm: select, flatten, crossproduct and
-;;                     the labeled "Show results" output (option 1).
-;;       Evan Bailey - lookups.scm: find-by-zip, find-by-place and
-;;                     count-zips-in-state (options 2, 3 and 6).
-;;   <member 3>      - places.scm: states-for-place and common-places
-;;                     (options 4 and 5).
-;;   <member 4>      - <e.g. final comprehensive testing, documentation>
-;;
 ;; Files:
 ;;   zipcodes.scm  - the dataset: a list of records shaped like
 ;;                   (zipcode place state county latitude longitude)
