@@ -9,7 +9,6 @@
 ;; Completed by Evan Bailey
 ;; ============================================================
 (provide find-by-zip find-by-place count-zips-in-state)
-
 ;; find-by-zip : number list -> record or #f
 ;; Return the FIRST record whose numeric zipcode equals zip.
 ;; Return #f if no record matches. Do not print from this function.
@@ -17,7 +16,6 @@
   (cond ((null? lst) #f)
         ((= zip (car (car lst))) (car lst))
         (else (find-by-zip zip (cdr lst)))))
-
 ;; find-by-place : string list -> record or #f
 ;; Return the FIRST record whose place matches place, ignoring case.
 ;; Return #f if no record matches. Do not print from this function.
@@ -25,7 +23,6 @@
   (cond ((null? lst) #f)
         ((string-ci=? place (cadr (car lst))) (car lst))
         (else (find-by-place place (cdr lst)))))
-
 ;; count-zips-in-state : string list -> nonnegative integer
 ;; Count all records whose state matches state.
 ;; Return 0 when there are no matches. Do not print from this function.
@@ -34,5 +31,3 @@
         ((string-ci=? state (caddr (car lst)))
          (+ 1 (count-zips-in-state state (cdr lst))))
         (else (count-zips-in-state state (cdr lst)))))
-
-
