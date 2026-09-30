@@ -33,5 +33,3 @@
         ((string-ci=? state (caddr (car lst)))
          (+ 1 (count-zips-in-state state (cdr lst))))
         (else (count-zips-in-state state (cdr lst)))))
-
-
